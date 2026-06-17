@@ -15,6 +15,7 @@
 
 import { InvoiceHeader } from '@/components/escrow/InvoiceHeader';
 import { ProcessStepper } from '@/components/escrow/ProcessStepper';
+import { Home } from 'lucide-react';
 import type { CSSProperties } from 'react';
 
 type StubStatus = 'paid' | 'blocked' | 'released';
@@ -23,6 +24,26 @@ type ViewConfig = {
   label: StubStatus;
   step: 2 | 3 | 4;
   title: string;
+};
+
+type InvoiceEscrow = {
+  apartment: {
+    name: string;
+    image_urls?: string[] | null;
+  };
+  pricePerMonth: number;
+  deposit: number;
+};
+
+const STUB_ESCROW: InvoiceEscrow = {
+  apartment: {
+    name: 'La sabana apartment',
+    image_urls: [
+      'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=160&q=80',
+    ],
+  },
+  pricePerMonth: 4000,
+  deposit: 4000,
 };
 
 const styles = {
@@ -53,6 +74,29 @@ const styles = {
     width: '100%',
     borderCollapse: 'collapse',
     fontSize: '0.95rem',
+  } satisfies CSSProperties,
+  productCell: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+  } satisfies CSSProperties,
+  productThumbnail: {
+    width: 40,
+    height: 40,
+    borderRadius: '0.5rem',
+    objectFit: 'cover',
+    flexShrink: 0,
+  } satisfies CSSProperties,
+  productIconFallback: {
+    width: 40,
+    height: 40,
+    borderRadius: '0.5rem',
+    backgroundColor: '#fff7ed',
+    border: '1px solid #fed7aa',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   } satisfies CSSProperties,
   input: {
     width: '100%',
@@ -108,7 +152,31 @@ function InfoPair({ label, value }: { label: string; value: string }) {
   );
 }
 
-function PaidStubView() {
+function InvoiceProductCell({ escrow }: { escrow: InvoiceEscrow }) {
+  const thumbnailUrl = escrow.apartment.image_urls?.[0];
+
+  return (
+    <div style={styles.productCell}>
+      {thumbnailUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={thumbnailUrl}
+          alt={escrow.apartment.name}
+          width={40}
+          height={40}
+          style={styles.productThumbnail}
+        />
+      ) : (
+        <span aria-hidden="true" style={styles.productIconFallback}>
+          <Home size={18} color="#f97316" />
+        </span>
+      )}
+      <span>{escrow.apartment.name}</span>
+    </div>
+  );
+}
+
+function PaidStubView({ escrow }: { escrow: InvoiceEscrow }) {
   return (
     <div style={{ display: 'grid', gap: '1.5rem' }}>
       <div style={styles.splitGrid}>
@@ -129,12 +197,14 @@ function PaidStubView() {
           </thead>
           <tbody>
             <tr>
-              <td style={{ padding: '0.9rem', borderTop: '1px solid #fed7aa' }}>La sabana apartment</td>
-              <td style={{ padding: '0.9rem', textAlign: 'right', borderTop: '1px solid #fed7aa' }}>
-                $4,000
+              <td style={{ padding: '0.9rem', borderTop: '1px solid #fed7aa' }}>
+                <InvoiceProductCell escrow={escrow} />
               </td>
               <td style={{ padding: '0.9rem', textAlign: 'right', borderTop: '1px solid #fed7aa' }}>
-                $4,000
+                ${escrow.pricePerMonth.toLocaleString()}
+              </td>
+              <td style={{ padding: '0.9rem', textAlign: 'right', borderTop: '1px solid #fed7aa' }}>
+                ${escrow.deposit.toLocaleString()}
               </td>
             </tr>
           </tbody>
@@ -142,7 +212,7 @@ function PaidStubView() {
       </div>
 
       <div style={{ fontSize: '0.95rem' }}>
-        <strong>Total: $8,000</strong>
+        <strong>Total: ${(escrow.pricePerMonth + escrow.deposit).toLocaleString()}</strong>
       </div>
     </div>
   );
@@ -270,7 +340,7 @@ export default function EscrowDetailPage({
           <h2 style={{ marginTop: 0, marginBottom: '1.5rem', fontSize: '1.5rem' }}>{view.title}</h2>
 
           {/* TODO: swap placeholder sections for real escrow views once frontend-SafeTrust is merged */}
-          {view.label === 'paid' && <PaidStubView />}
+          {view.label === 'paid' && <PaidStubView escrow={STUB_ESCROW} />}
           {view.label === 'blocked' && <BlockedStubView />}
           {view.label === 'released' && <ReleasedStubView />}
         </div>
