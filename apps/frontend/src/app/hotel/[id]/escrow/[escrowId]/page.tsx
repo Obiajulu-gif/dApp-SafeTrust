@@ -1,3 +1,5 @@
+"use client";
+
 // TODO: replace stub views with real components once merged in frontend-SafeTrust
 // Sources:
 //   frontend-SafeTrust/src/components/escrow/views/EscrowPaidView.tsx
@@ -13,9 +15,13 @@
 //
 // Real-time: RealTimeEscrowStatus (Hasura subscription) drives automatic transitions
 
+import { useQuery } from '@apollo/client';
+import { Home } from 'lucide-react';
+
 import { InvoiceHeader } from '@/components/escrow/InvoiceHeader';
 import { ProcessStepper } from '@/components/escrow/ProcessStepper';
-import type { CSSProperties } from 'react';
+import { GET_ESCROW_BY_ENGAGEMENT_ID } from '@/graphql/queries/escrow-queries';
+import { useState, type CSSProperties } from 'react';
 
 type StubStatus = 'paid' | 'blocked' | 'released';
 
@@ -23,6 +29,23 @@ type ViewConfig = {
   label: StubStatus;
   step: 2 | 3 | 4;
   title: string;
+};
+
+type EscrowApartment = {
+  id: string;
+  name: string;
+  image_urls?: string[] | null;
+};
+
+type EscrowDetail = {
+  id: string;
+  amount: number;
+  status: string;
+  apartment?: EscrowApartment | null;
+};
+
+type EscrowDetailData = {
+  escrows: EscrowDetail[];
 };
 
 const styles = {
@@ -85,6 +108,34 @@ const styles = {
     padding: '0.6rem 1rem',
     fontWeight: 700,
   } satisfies CSSProperties,
+  productCell: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+  } satisfies CSSProperties,
+  productThumbnail: {
+    width: '40px',
+    height: '40px',
+    borderRadius: '0.5rem',
+    overflow: 'hidden',
+    backgroundColor: '#f3f4f6',
+    border: '1px solid #fed7aa',
+    flexShrink: 0,
+  } satisfies CSSProperties,
+  productImage: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    display: 'block',
+  } satisfies CSSProperties,
+  productIconFallback: {
+    width: '100%',
+    height: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#9ca3af',
+  } satisfies CSSProperties,
 } as const;
 
 function getStubView(status: string | undefined): ViewConfig {
@@ -108,7 +159,39 @@ function InfoPair({ label, value }: { label: string; value: string }) {
   );
 }
 
-function PaidStubView() {
+function ProductCell({ apartment }: { apartment?: EscrowApartment | null }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const apartmentName = apartment?.name ?? 'La sabana apartment';
+  const thumbnailUrl = apartment?.image_urls?.[0];
+  const shouldShowImage = Boolean(thumbnailUrl) && !imageFailed;
+
+  return (
+    <div style={styles.productCell}>
+      <div style={styles.productThumbnail}>
+        {shouldShowImage ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={thumbnailUrl}
+            alt={apartmentName}
+            style={styles.productImage}
+            onError={() => setImageFailed(true)}
+          />
+        ) : (
+          <div style={styles.productIconFallback} aria-label="Apartment image unavailable">
+            <Home size={18} aria-hidden="true" />
+          </div>
+        )}
+      </div>
+      <span>{apartmentName}</span>
+    </div>
+  );
+}
+
+function PaidStubView({ escrow }: { escrow?: EscrowDetail }) {
+  const amount = escrow?.amount ?? 4000;
+  const formattedAmount = `$${Number(amount).toLocaleString()}`;
+  const formattedTotal = `$${Number(amount * 2).toLocaleString()}`;
+
   return (
     <div style={{ display: 'grid', gap: '1.5rem' }}>
       <div style={styles.splitGrid}>
@@ -129,12 +212,14 @@ function PaidStubView() {
           </thead>
           <tbody>
             <tr>
-              <td style={{ padding: '0.9rem', borderTop: '1px solid #fed7aa' }}>La sabana apartment</td>
-              <td style={{ padding: '0.9rem', textAlign: 'right', borderTop: '1px solid #fed7aa' }}>
-                $4,000
+              <td style={{ padding: '0.9rem', borderTop: '1px solid #fed7aa' }}>
+                <ProductCell apartment={escrow?.apartment} />
               </td>
               <td style={{ padding: '0.9rem', textAlign: 'right', borderTop: '1px solid #fed7aa' }}>
-                $4,000
+                {formattedAmount}
+              </td>
+              <td style={{ padding: '0.9rem', textAlign: 'right', borderTop: '1px solid #fed7aa' }}>
+                {formattedAmount}
               </td>
             </tr>
           </tbody>
@@ -142,7 +227,7 @@ function PaidStubView() {
       </div>
 
       <div style={{ fontSize: '0.95rem' }}>
-        <strong>Total: $8,000</strong>
+        <strong>Total: {formattedTotal}</strong>
       </div>
     </div>
   );
@@ -244,6 +329,10 @@ export default function EscrowDetailPage({
   searchParams: { status?: string };
 }) {
   const view = getStubView(searchParams?.status);
+  const { data } = useQuery<EscrowDetailData>(GET_ESCROW_BY_ENGAGEMENT_ID, {
+    variables: { engagementId: params.escrowId },
+  });
+  const escrow = data?.escrows?.[0];
 
   return (
     <div style={styles.page}>
@@ -270,7 +359,7 @@ export default function EscrowDetailPage({
           <h2 style={{ marginTop: 0, marginBottom: '1.5rem', fontSize: '1.5rem' }}>{view.title}</h2>
 
           {/* TODO: swap placeholder sections for real escrow views once frontend-SafeTrust is merged */}
-          {view.label === 'paid' && <PaidStubView />}
+          {view.label === 'paid' && <PaidStubView escrow={escrow} />}
           {view.label === 'blocked' && <BlockedStubView />}
           {view.label === 'released' && <ReleasedStubView />}
         </div>
